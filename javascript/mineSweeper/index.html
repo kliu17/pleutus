@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Minesweeper</title>
+    <link rel="stylesheet" type="text/css" href="css/minesweeper.css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="js/minesweeper.js"></script>
+</head>
+<body>
+    <div id="title">MineSweeper</div>
+    <div id="descriptionE" class="description">Easy=6 rows, 8 columns, 4 bombs</div>
+    <div id="descriptionR" class="description">Reg (default)=30 rows, 15 columns, 20 bombs</div>
+    <div id="descriptionH" class="description">Hard=30 rows, 30 columns, 50 bombs</div>
+    <div id="dashboard" class="controls">
+        <ul id="difficulty">
+            <li id="easy">Easy</li>
+            <li id="reg" class="selected">Reg</li>
+            <li id="hard">Hard</li>
+        </ul>
+    	<div id="feedback">
+            <span id="value">5</span>
+            <i class="fa fa-bomb"></i>
+        </div>
+    </div>
+    <div id="board"></div>
+    <div id="new-game" class="controls">Play again?</div>
+    <script type="text/javascript">
+        var board;
+        $(document).ready(function () {
+            newGame('reg');
+            $('#new-game').hide();
+            $('#difficulty li').click(function (eventObject) {
+                $('#difficulty li').removeClass('selected');
+                $(this).addClass('selected');
+                var difficulty = $(this).attr('id');
+                newGame(difficulty);
+                $('#new-game').hide();
+            });
+            $('#new-game').click(function (eventObject) {
+                var difficulty = $('#difficulty li.selected').attr('id');
+                newGame(difficulty);
+                $('#new-game').hide();
+            });
+        });
+    </script>
+</body>
+</html>

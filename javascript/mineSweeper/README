@@ -1,0 +1,11 @@
+An Javascript implementation of the Minesweeper game, which is a single-player puzzle game. The objective of the game is to clear a rectangular board containing hidden "mines" without detonating any of them, with help from clues about the number of neighboring mines in each field. 
+
+There are 3 files:
+	./index.html
+	./js/minesweeper.js
+	./css/minesweeper.css
+
+To run the game, a user just need to place the 3 files in the above structure and then load index.html using a browser. The program is tested on Chorme and Safari.
+
+
+Note: this version of the program does not support flagging. So, if a user clicks all the fields without stepping on mines (the number of mines is listed in each game), the user wins but the program won't alert the user or stop the game.
