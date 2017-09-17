@@ -1,0 +1,33 @@
+                   Owl Platform World Model Library for Java
+                                  Change Log
+
+Owl Platform: <http://www.owlplatform.com>
+Project Website: <https://github.com/OwlPlatform/java-owl-worldmodel>
+
+Version 1.0.7 - July 7, 2014
+ + Correcting initial setting in SolverWorldConnection to auto-reconnect
+   to the World Model.
+
+Version 1.0.6 - June 16, 2014
+ + Updating to fix "Already connected!" bug.
+
+Version 1.0.5 - May 29, 2013
+ + Changed mina-core dependency from 'bundle' to 'jar' type.
+
+Version 1.0.4 - October 17, 2012
+ + Updating MINA dependency (2.0.7).
+
+Version 1.0.3 - October 17, 2012
+ + Updating project dependencies.
+
+Version 1.0.2 - July 13, 2012
+ + Fixing code internals to use "Identifier" instead of "URI".
+ + Fixed Issue #2 - ClientWorldConnection.connect() not behaving
+   correctly.
+   [https://github.com/OwlPlatform/java-owl-worldmodel/issues/2]
+ + Adding Attribute equality comparisons.
+
+Version 1.0.1 - July 10, 2012
+ + Initial version ported from GRAIL RTLS at SourceForge.net.
+   <http://www.sf.net/projects/grailrtls/>
+ + Fully documented with Javadoc.

@@ -1,0 +1,23 @@
+                Owl Platform Solver-Aggregator Library for Java
+                                  Change Log
+
+Owl Platform: <http://www.owlplatform.com>
+Project Website: <https://github.com/OwlPlatform/java-owl-solver>
+
+Version 1.0.4 - August 6, 2013
+ + Fixed bug in reconnect code that was more common in Sensor library, but
+ which occasionally showed here.
+ + Correcting default port number for aggregator-solver connection. 
+
+Version 1.0.3 - October 17, 2012
+ + Updating MINA dependency (2.0.7).
+
+Version 1.0.2 - October 17, 2012
+ + Updating project dependencies.
+
+Version 1.0.1 - June 28, 2012
+ + Initial version ported from GRAIL RTLS at SourceForge.net.
+   <http://www.sf.net/projects/grailrtls/>
+ + Fully documented with Javadoc.
+ + JUnit test cases added.
+ + Fixing some null pointer exceptions caused by race conditions.
