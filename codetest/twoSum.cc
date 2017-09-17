@@ -5,6 +5,30 @@
 
 using namespace std;
 
+class Solution {
+	public:
+	
+        vector<int> twosum(vector<int> nums, int t) {
+		unordered_map<int, int> m;
+		vector<int> res;
+		for (int i=0; i<nums.size(); i++) {
+			int target=t-nums[i];
+			if (m.find(target) != m.end()) {
+				res.push_back(nums[i]);
+				res.push_back(target);
+				return res;
+			}
+			m[nums[i]]=i;
+		}
+		return res;
+	}
+
+	void printArray(vector<int> res) {
+		for (int i=0; i<res.size(); i++) 
+			cout << res[i] << endl;
+	}
+};
+
 int main() {
 	vector<int> nums;
 	nums.push_back(2);
@@ -15,28 +39,17 @@ int main() {
 	nums.push_back(15);
 	nums.push_back(16);
 	int k=31;
-	vector<int> res;
 
-	unordered_map<int, int> hash;
-	for (int i=0; i<nums.size(); i++) {
-		int target = k-nums[i];
-		if (hash.find(target) != hash.end()) {
-			res.push_back(hash[target]); 
-			res.push_back(i); 
-			break;
-			//return res;
-		}
-		//hash.insert(make_pair(nums[i], i));
-		hash[nums[i]]=i;
-	}
-	
+	Solution s;
+	vector<int> res = s.twosum(nums, k); 
 
+/*
 	for(auto it: nums) cout<<it<< endl;
 	cout << endl;
 	for(auto p: hash)
         	cout << " " << p.first << " => " << p.second << '\n';
+*/
 
-	cout << endl;
-	for (int i=0; i<res.size(); i++) cout << res[i] << endl;
+	s.printArray(res);
 	return 0;
 }

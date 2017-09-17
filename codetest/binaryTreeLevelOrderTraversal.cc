@@ -41,6 +41,34 @@ public:
     }
 };
 
+class Solution1 {
+public:
+    vector<double> averageOfLevels(TreeNode* root) {
+	vector<double> res;
+	if (!root) return res;
+	queue<TreeNode*> q;
+	q.push(root);
+	q.push(NULL);
+	int count=0;
+	double sum=0.0;
+	while (!q.empty()) {
+		TreeNode * t=q.front();
+		q.pop();
+		if (t==NULL) {
+			res.push_back(sum/count);
+			sum=count=0;
+			if (q.size()>0) q.push(NULL);
+		} else {
+			sum+=t->val;
+			count++;
+			if (t->left) q.push(t->left);
+			if (t->right) q.push(t->right);
+		}
+	}
+	return res;
+    }
+};
+
 int main() {
     Solution s;
     TreeNode a(3);
@@ -58,6 +86,10 @@ int main() {
 		cout<< z[i][j] << ", ";
         cout << endl;
     }
+    cout << endl;
 
+    Solution1 s1;
+    vector<double> aaa = s1.averageOfLevels(&a);
+    for (auto aa: aaa) { cout << aa << endl; }
     return 0;
 }
