@@ -12,10 +12,11 @@ extern "C" {
 #include <sys/uio.h>	/* for struct iovec */
 #include <stdbool.h>
 #include <stdarg.h>
+#include <fstream>
 #include <stdint.h>
 #include <unistd.h>	/* for ssize_t */
 #include <zlib.h>	/* for z_stream */
-
+using namespace std;
 struct buffer {
 	unsigned long		start;
 	unsigned long		end;
@@ -34,8 +35,8 @@ ssize_t buffer_recv(struct buffer *self, int sockfd, size_t size, int flags);
 ssize_t buffer_xread(struct buffer *self, int fd);
 ssize_t buffer_nxread(struct buffer *buf, int fd, size_t size);
 ssize_t buffer_xwrite(struct buffer *self, int fd);
-ssize_t buffer_read(struct buffer *self, int fd);
-ssize_t buffer_nread(struct buffer *buf, int fd, size_t size);
+ssize_t buffer_read(struct buffer *self, fstream& fd);
+ssize_t buffer_nread(struct buffer *buf, fstream& fd, size_t size);
 ssize_t buffer_write(struct buffer *self, int fd);
 
 static inline u8 buffer_peek_8(const struct buffer *self)

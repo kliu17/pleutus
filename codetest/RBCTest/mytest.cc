@@ -160,11 +160,15 @@ int main() {
     res.push_back(p);
 */
 
-    char buff[BUFF_SIZE];
-    fstream myFile ("OUCHLMM2.incoming.packets", ios::in | ios::binary);
+   // char buff[BUFF_SIZE];
+    fstream fd;
+    fd.open("OUCHLMM2.incoming.packets", ios::in | ios::binary);
 
-    myFile.read (buff,  BUFF_SIZE);
-    char hbuff[6];
+    //myFile.read (buff,  BUFF_SIZE);
+  struct buffer* buff =  buffer_new(BUFF_SIZE); 
+  buffer_read(buff, fd);
+  
+    /* char hbuff[6];
     memcpy(hbuff, buff,6);	 	
     
      package_header* temp = (struct package_header*)hbuff;
@@ -180,7 +184,7 @@ int main() {
 
    cout << "stream #: " <<  sid << endl;
    cout << "package size #: " <<  psize << endl;
-   cout << "message size #: " <<  message_len << endl;
+   cout << "message size #: " <<  message_len << endl; */
    return 0;    
 
 
