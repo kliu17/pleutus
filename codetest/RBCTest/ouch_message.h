@@ -11,26 +11,26 @@ extern "C" {
  * Package header:
  */
 struct package_header {
-        uint16_t stream_id;
-        uint32_t package_size;
+        uint16_t StreamId;
+        uint32_t PackageSize;
 }__attribute__((packed));;
 
 /*
  * Message types:
  */
 enum ouch_msg_type {
-	OUCH42_MSG_SYSTEM_EVENT = 'S',
-	OUCH42_MSG_ACCEPTED	= 'A',
-	OUCH42_MSG_REPLACED	= 'U',
-	OUCH42_MSG_CANCELED	= 'C',
-	OUCH42_MSG_EXECUTED	= 'E',
+	OUCH_MSG_SYSTEM_EVENT = 'S',
+	OUCH_MSG_ACCEPTED	= 'A',
+	OUCH_MSG_REPLACED	= 'U',
+	OUCH_MSG_CANCELED	= 'C',
+	OUCH_MSG_EXECUTED	= 'E',
 };
 
 /*
  * OUCH message length:
  */
 struct ouch_message_len {
-        uint16_t msg_len;   
+        uint16_t MsgLen;   
 } __attribute__((packed));
 
 /*
@@ -69,7 +69,7 @@ struct ouch_msg_accepted {
 /*
  * OUCH message replaced:
  */
-struct ouch42_msg_replaced {
+struct ouch_msg_replaced {
         char   			PackageType;  
 	uint8_t			MessageType;
 	uint64_t		Timestamp;
@@ -93,7 +93,7 @@ struct ouch42_msg_replaced {
 /*
  * OUCH message cancelled:
  */
-struct ouch42_msg_canceled {
+struct ouch_msg_canceled {
         char   			PackageType;  
 	uint8_t			MessageType;
 	uint64_t		Timestamp;

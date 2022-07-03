@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "ouch_message.h"
+#include "buffer.h"
 
 using namespace std;
 const int BUFF_SIZE = 1024;
@@ -16,7 +17,7 @@ const int BUFF_SIZE = 1024;
 static char recv_buffer[BUFF_SIZE];
 
 struct output_msg{
-unsigned int  streamID;
+unsigned int  StreamId;
 unsigned int  num_accepted;
 unsigned int  num_system_events;
 unsigned int  num_rejected;
@@ -73,26 +74,28 @@ static unsigned long ouch_out_message_size(uint8_t type) {
         return 0;
 }
 
-int ouch42_in_message_decode(struct buffer *buf, struct ouch42_message *msg) {
+/**
+int ouch_in_message_decode(struct buffer *buf, struct ouch_message *msg) {
         void *start;
         size_t size;
         uint8_t type;
         start = buffer_start(buf);        type = buffer_get_8(buf);
-        size = ouch42_in_message_size(type);
+        size = ouch_in_message_size(type);
         if (!size)
                 return -1;
         memcpy(msg, start, size);
         buffer_advance(buf, size);
         return 0;
 }       
+**/
 
-int ouch42_out_message_decode(struct buffer *buf, struct ouch42_message *msg) {
+int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg) {
         void *start;
         size_t size;
         uint8_t type;
         start = buffer_start(buf);
         type = buffer_get_8(buf);
-        size = ouch42_out_message_size(type);
+        size = ouch_out_message_size(type);
         if (!size)
                 return -1;
         memcpy(msg, start, size);
@@ -109,8 +112,8 @@ int main() {
     memcpy(hbuff, buff,6);	 	
     
      package_header* temp = (struct package_header*)hbuff;
-    uint16_t  sid = ntohs(temp->streamID);
-    uint32_t  psize = ntohl((temp->package_size));
+    uint16_t  sid = ntohs(temp->StreamId);
+    uint32_t  psize = ntohl((temp->PackageSize));
     
      char mlen[2];
     memcpy(mlen, buff+99, 2);
@@ -126,7 +129,7 @@ int main() {
 
 
 }
-/*        struct ouch42_message *msg = (void *) recv_buffer;
+/*        struct ouch_message *msg = (void *) recv_buffer;
         struct buffer *buf;
         buf = buffer_new(1024);
         int fd;
@@ -140,7 +143,7 @@ int main() {
 
         fail_if(buffer_xread(buf, fd) < 0);
 
-        fail_if(ouch42_in_message_decode(buf, msg) < 0);
+        fail_if(ouch_in_message_decode(buf, msg) < 0);
 */
 /*
         assert_int_equals(BOE_MAGIC, msg->header.StartOfMessage);
