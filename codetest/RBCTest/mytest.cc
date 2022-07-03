@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <vector>
+#include <unordered_map>
 
 #include "ouch_message.h"
 #include "buffer.h"
@@ -20,14 +20,14 @@ static char recv_buffer[BUFF_SIZE];
 /*
  * count result for each stream:
  */
-struct count_res{
-    int stream_id = -1;
+struct cnt_r{
+    int stream_id;
     unsigned int num_accepted;
     unsigned int num_system_events;
     unsigned int num_replaced;
     unsigned int num_canceled;
     int executed[2];
-    bool is_complete_package = true;
+    bool is_complete_package;
 };
 
 struct buffer *buffer_new(unsigned long capacity) {
@@ -108,8 +108,66 @@ int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg) {
         return 0;
 }       
 
-void printResult(vector<count_res> vect) {
-    count_res totals;
+unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char type, bool cp) {
+    if (m.find(id) == m.end()) {
+        // no stream id present, so create a new one
+        cnt_r p;
+        p.stream_id = id;
+        p.num_accepted = 0;
+        p.num_system_events = 0;
+        p.num_replaced = 0;
+        p.num_canceled = 0;
+        p.executed[0] = 0;
+        p.executed[1] = 0;
+        p.is_complete_package = true;
+        m.insert({id, {p}});
+    }
+    m[id].is_complete_package = cp;
+    if (!cp) {
+        m[id].is_complete_package = true;
+        return m;
+    }
+    switch (type) {
+        case OUCH_MSG_SYSTEM_EVENT:
+                m[id].num_system_events++;
+        case OUCH_MSG_ACCEPTED:
+                m[id].num_accepted++;
+        case OUCH_MSG_REPLACED:
+                m[id].num_replaced++;
+        case OUCH_MSG_CANCELED:
+                m[id].num_canceled++;
+        default:
+                break;
+    }
+    return m;
+}
+
+unordered_map<uint16_t,cnt_r> update_cnt_executed(unordered_map<uint16_t,cnt_r> m, uint16_t id, uint32_t shares, bool cp) {
+    if (m.find(id) == m.end()) {
+        // no stream id present, so create a new one
+        cnt_r p;
+        p.stream_id = id;
+        p.num_accepted = 0;
+        p.num_system_events = 0;
+        p.num_replaced = 0;
+        p.num_canceled = 0;
+        p.executed[0] = 0;
+        p.executed[1] = 0;
+        p.is_complete_package = true;
+        m.insert({id, {p}});
+    }
+    m[id].is_complete_package = cp;
+    if (!cp) {
+        m[id].is_complete_package = true;
+        return m;
+    }
+    m[id].executed[0]++;
+    m[id].executed[1] += shares;
+    return m;
+}
+
+void print_result(unordered_map<uint16_t,cnt_r> m) {
+    cnt_r totals;
     totals.num_accepted = 0;
     totals.num_system_events = 0;
     totals.num_replaced = 0;
@@ -117,23 +175,24 @@ void printResult(vector<count_res> vect) {
     totals.executed[0] = 0;
     totals.executed[1] = 0;
 
-    if(vect.empty())
+    if (m.size()<=0)
         cout << "\nNo values exist in the count result table.";
-    else
-        for (int count = 0; count < vect.size(); count++) {
-            cout << "\nStream " << vect[count].stream_id << " messages" << "\n";
-            cout << "Accepted: " << vect[count].num_accepted << " messages" << "\n";
-            cout << "System Event: " << vect[count].num_system_events << " messages" << "\n";
-            cout << "Replaced: " << vect[count].num_replaced << " messages" << "\n";
-            cout << "Canceled: " << vect[count].num_canceled << " messages" << "\n";
-            cout << "Executed: " << vect[count].executed[0] << " messages: " << vect[count].executed[1] << "executed shares" << "\n";
-            totals.num_accepted += vect[count].num_accepted;
-            totals.num_system_events += vect[count].num_system_events;
-            totals.num_replaced += vect[count].num_replaced;
-            totals.num_canceled += vect[count].num_canceled;
-            totals.executed[0] += vect[count].executed[0];
-            totals.executed[1] += vect[count].executed[1];
-        }
+
+    for (auto it=m.begin(); it!=m.end(); it++) {
+        cout << "\nStream " << it->first << "\n";
+        cout << "Accepted: " << it->second.num_accepted << " messages" << "\n";
+        cout << "System Event: " << it->second.num_system_events << " messages" << "\n";
+        cout << "Replaced: " << it->second.num_replaced << " messages" << "\n";
+        cout << "Canceled: " << it->second.num_canceled << " messages" << "\n";
+        cout << "Executed: " << it->second.executed[0] << " messages: " << it->second.executed[1] << "executed shares" << "\n";
+        totals.num_accepted += it->second.num_accepted;
+        totals.num_system_events += it->second.num_system_events;
+        totals.num_replaced += it->second.num_replaced;
+        totals.num_canceled += it->second.num_canceled;
+        totals.executed[0] += it->second.executed[0];
+        totals.executed[1] += it->second.executed[1];
+    }
+
     cout << endl;
     cout << "\nTotals: " << "\n";
     cout << "Accepted: " << totals.num_accepted << " messages" << "\n"; 
@@ -144,10 +203,12 @@ void printResult(vector<count_res> vect) {
 }
 
 int main() {
-    vector <count_res> res;
+    unordered_map<int,cnt_r> res;
 
 /*
-    count_res p;
+
+    sid=4;
+    cnt_r p;
     p.stream_id = 4;
     p.num_accepted = 1;
     p.num_system_events = 0;
@@ -157,7 +218,7 @@ int main() {
     p.executed[1] = 0;
     p.is_complete_package = false;
 
-    res.push_back(p);
+    res.insert({sid, {p}});
 */
 
    // char buff[BUFF_SIZE];
