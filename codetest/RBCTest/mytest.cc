@@ -60,6 +60,20 @@ ssize_t buffer_nread(struct buffer *buf, int fd, size_t size) {
         buf->end += len;
         return len;
 }
+ssize_t buffer_read(struct buffer *buf, fstream& fd) {
+        size_t count;
+        ssize_t len;
+        char *end;
+        end     = buffer_end(buf);
+        count   = buffer_remaining(buf);
+
+        //len = read(fd, end, count);
+        fd.read( end, count);
+
+        buf->end += count;
+        return count;
+}
+
 
 static unsigned long ouch_out_message_size(uint8_t type) {
         switch (type) { 
@@ -100,13 +114,30 @@ int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg) {
         uint8_t type;
         start = buffer_start(buf);
         type = buffer_get_8(buf);
+        cout<<"after read type start: "<<buf->start<<endl;
+        cout<<"type=" <<type<<endl;
         size = ouch_out_message_size(type);
+        cout<<"size="<<size<<endl;
+        if (!size)
+                return -1;
+        memcpy(msg, start, size);
+        cout<<"start="<<buf->start<<endl;
+        buffer_advance(buf, size);
+       cout<<"after start="<<buf->start<<endl;
+        return 0;
+}     
+int package_header_decode(struct buffer *buf,char *msg) {
+        void *start;
+        size_t size;
+        uint8_t type;
+        start = buffer_start(buf);
+        size = sizeof(struct package_header);
         if (!size)
                 return -1;
         memcpy(msg, start, size);
         buffer_advance(buf, size);
         return 0;
-}       
+}
 
 unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char type, bool cp) {
     if (m.find(id) == m.end()) {
@@ -142,7 +173,7 @@ unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char typ
     return m;
 }
 
-unordered_map<uint16_t,cnt_r> update_cnt_executed(unordered_map<uint16_t,cnt_r> m, uint16_t id, uint32_t shares, bool cp) {
+unordered_map<uint16_t,cnt_r> update_cnt_executed(unordered_map<uint16_t,cnt_r> m, int id, int shares, bool cp) {
     if (m.find(id) == m.end()) {
         // no stream id present, so create a new one
         cnt_r p;
@@ -205,108 +236,47 @@ void print_result(unordered_map<uint16_t,cnt_r> m) {
 int main() {
     unordered_map<int,cnt_r> res;
 
-/*
+        fstream fd;
+        fd.open("OUCHLMM2.incoming.packets", ios::in | ios::binary);
 
-    sid=4;
-    cnt_r p;
-    p.stream_id = 4;
-    p.num_accepted = 1;
-    p.num_system_events = 0;
-    p.num_replaced = 0;
-    p.num_canceled = 0;
-    p.executed[0] = 0;
-    p.executed[1] = 0;
-    p.is_complete_package = false;
+        struct buffer* buff =  buffer_new(BUFF_SIZE);
+        buffer_read(buff, fd);
+//      while(buff->start <=(BUFF_SIZE -100)){
+                //buffer to hold header
+                char header[6];
+                //buffer to hold message
+                ouch_message message[100];
 
-    res.insert({sid, {p}});
-*/
+                //read header
+                package_header_decode(buff,header);
+                struct package_header* h = (struct package_header*)header;
 
-   // char buff[BUFF_SIZE];
-    fstream fd;
-    fd.open("OUCHLMM2.incoming.packets", ios::in | ios::binary);
+                //read message length
+                uint16_t msg_len = buffer_get_le16(buff);
+                cout<<buff->start<<endl;
 
-    //myFile.read (buff,  BUFF_SIZE);
-  struct buffer* buff =  buffer_new(BUFF_SIZE); 
-  buffer_read(buff, fd);
-  
-    /* char hbuff[6];
-    memcpy(hbuff, buff,6);	 	
-    
-     package_header* temp = (struct package_header*)hbuff;
-    uint16_t  sid = ntohs(temp->StreamId);
-    uint32_t  psize = ntohl((temp->PackageSize));
-    
-     char mlen[2];
-    memcpy(mlen, buff+99, 2);
-    uint16_t* tmp =(uint16_t*)mlen;
-    uint16_t message_len = ntohs(*tmp);
-    
+                //read message
+                ouch_out_message_decode(buff, message);
 
 
-   cout << "stream #: " <<  sid << endl;
-   cout << "package size #: " <<  psize << endl;
-   cout << "message size #: " <<  message_len << endl; */
-   return 0;    
+                cout << ntohs(h->StreamId)<<endl;
+                cout <<ntohl( h->PackageSize)<<endl;
+                cout <<ntohs(msg_len)<<endl;
+                cout<<message->MessageType<<endl;
+                cout <<buff->start<<endl;
+//      }
 
 
+        /* char hbuff[6];
+           memcpy(hbuff, buff,6);
+
+           package_header* temp = (struct package_header*)hbuff;
+           uint16_t  sid = ntohs(temp->StreamId);
+           uint32_t  psize = ntohl((temp->PackageSize));
+
+           char mlen[2];
+           memcpy(mlen, buff+99, 2);
+           uint16_t* tmp =(uint16_t*)mlen;
+           uint16_t message_len = ntohs(*tmp);
+         */
 }
-/*        struct ouch_message *msg = (void *) recv_buffer;
-        struct buffer *buf;
-        buf = buffer_new(1024);
-        int fd;
-        fd = open("./" "OUCHLMM2.incoming.packets", O_RDONLY);
-
-        unordered_map<string, int> countResults[256];
-
-    //ifstream file ("OUCHLMM2.incoming.packets", ios::in|ios::binary);
-
-        fail_if(fd < 0);
-
-        fail_if(buffer_xread(buf, fd) < 0);
-
-        fail_if(ouch_in_message_decode(buf, msg) < 0);
-*/
-/*
-        assert_int_equals(BOE_MAGIC, msg->header.StartOfMessage);
-        assert_int_equals(8, msg->header.MessageLength);
-        assert_int_equals(LogoutRequest, msg->header.MessageType);
-        assert_int_equals(0, msg->header.MatchingUnit);
-        assert_int_equals(0, msg->header.SequenceNumber);
-
-        countResults[sid]["Accepted"] ++;
-        countResults[sid]["Event"] ++;
-        countResults[sid]["Replaced"] ++;
-        countResults[sid]["Cancelled"] ++;
-        countResults[sid]["Executed"] ++;
-        countResults[sid]["ExecutedShares"] = countResults[sid]["ExecutedShares"] + msg->ExecutedShares;
-
-*/
-        
-//        buffer_delete(buf);
-//        fail_if(close(fd) < 0);
-
-/*
-    unsigned short streamid;
-    int packlen;
-    char buff[128];
-    char ch[2];
-    char level[4];
-    char thetime[4];
-
-    if (file.is_open()) {
-       while (!file.eof()) {
-          file.read(buff, 2);
-          streamid=(unsigned short)buff;
-          file.read(buff, 4);
-          packlen=atoi(buff);
-
-          cout << streamid << endl;
-          cout << packlen << endl;
-          break;
-       }
-       file.close();
-    }
-    printf("hello, world\n");
-*/
-//    return 0;
-//}
