@@ -21,12 +21,13 @@ static char recv_buffer[BUFF_SIZE];
  * count result for each stream:
  */
 struct count_res{
-    unsigned int stream_id;
+    int stream_id = -1;
     unsigned int num_accepted;
     unsigned int num_system_events;
     unsigned int num_replaced;
     unsigned int num_canceled;
     int executed[2];
+    bool is_complete_package = true;
 };
 
 struct buffer *buffer_new(unsigned long capacity) {
@@ -154,6 +155,7 @@ int main() {
     p.num_canceled = 0;
     p.executed[0] = 0;
     p.executed[1] = 0;
+    p.is_complete_package = false;
 
     res.push_back(p);
 */
