@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <vector>
 
 #include "ouch_message.h"
 #include "buffer.h"
@@ -16,13 +17,16 @@ const int BUFF_SIZE = 1024;
 
 static char recv_buffer[BUFF_SIZE];
 
-struct output_msg{
-unsigned int  StreamId;
-unsigned int  num_accepted;
-unsigned int  num_system_events;
-unsigned int  num_rejected;
-unsigned int  num_canceled;
-int executed[2];
+/*
+ * count result for each stream:
+ */
+struct count_res{
+    unsigned int stream_id;
+    unsigned int num_accepted;
+    unsigned int num_system_events;
+    unsigned int num_replaced;
+    unsigned int num_canceled;
+    int executed[2];
 };
 
 struct buffer *buffer_new(unsigned long capacity) {
@@ -103,7 +107,57 @@ int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg) {
         return 0;
 }       
 
+void printResult(vector<count_res> vect) {
+    count_res totals;
+    totals.num_accepted = 0;
+    totals.num_system_events = 0;
+    totals.num_replaced = 0;
+    totals.num_canceled = 0;
+    totals.executed[0] = 0;
+    totals.executed[1] = 0;
+
+    if(vect.empty())
+        cout << "\nNo values exist in the count result table.";
+    else
+        for (int count = 0; count < vect.size(); count++) {
+            cout << "\nStream " << vect[count].stream_id << " messages" << "\n";
+            cout << "Accepted: " << vect[count].num_accepted << " messages" << "\n";
+            cout << "System Event: " << vect[count].num_system_events << " messages" << "\n";
+            cout << "Replaced: " << vect[count].num_replaced << " messages" << "\n";
+            cout << "Canceled: " << vect[count].num_canceled << " messages" << "\n";
+            cout << "Executed: " << vect[count].executed[0] << " messages: " << vect[count].executed[1] << "executed shares" << "\n";
+            totals.num_accepted += vect[count].num_accepted;
+            totals.num_system_events += vect[count].num_system_events;
+            totals.num_replaced += vect[count].num_replaced;
+            totals.num_canceled += vect[count].num_canceled;
+            totals.executed[0] += vect[count].executed[0];
+            totals.executed[1] += vect[count].executed[1];
+        }
+    cout << endl;
+    cout << "\nTotals: " << "\n";
+    cout << "Accepted: " << totals.num_accepted << " messages" << "\n"; 
+    cout << "System Event: " << totals.num_system_events << " messages" << "\n";
+    cout << "Replaced: " << totals.num_replaced << " messages" << "\n";
+    cout << "Canceled: " << totals.num_canceled << " messages" << "\n";
+    cout << "Executed: " << totals.executed[0] << " messages: " << totals.executed[1] << "executed shares" << "\n";
+}
+
 int main() {
+    vector <count_res> res;
+
+/*
+    count_res p;
+    p.stream_id = 4;
+    p.num_accepted = 1;
+    p.num_system_events = 0;
+    p.num_replaced = 0;
+    p.num_canceled = 0;
+    p.executed[0] = 0;
+    p.executed[1] = 0;
+
+    res.push_back(p);
+*/
+
     char buff[BUFF_SIZE];
     fstream myFile ("OUCHLMM2.incoming.packets", ios::in | ios::binary);
 
