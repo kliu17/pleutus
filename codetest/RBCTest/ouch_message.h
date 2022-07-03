@@ -19,7 +19,7 @@ struct package_header {
  * Message types:
  */
 enum ouch_msg_type {
-	OUCH_MSG_SYSTEM_EVENT = 'S',
+	OUCH_MSG_SYSTEM_EVENT   = 'S',
 	OUCH_MSG_ACCEPTED	= 'A',
 	OUCH_MSG_REPLACED	= 'U',
 	OUCH_MSG_CANCELED	= 'C',
@@ -31,6 +31,13 @@ enum ouch_msg_type {
  */
 struct ouch_message_len {
         uint16_t MsgLen;   
+} __attribute__((packed));
+
+/*
+ * OUCH message length:
+ */
+struct ouch_message {
+        char                    MessageType;
 } __attribute__((packed));
 
 /*
