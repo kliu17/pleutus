@@ -140,12 +140,12 @@ int ouch42_out_message_decode(struct buffer *buf, struct ouch42_message *msg) {
 int main() {
    // struct buffer *buf;
     //buf = buffer_new(BUFF_SIZE);
-    char buff[BUFF_SIZE);
+    char buff[BUFF_SIZE];
     fstream myFile ("OUCHLMM2.incoming.packets", ios::in | ios::binary);
     //while(myFile){
    	 myFile.read (buff,  BUFF_SIZE);
     char hbuff [sizeof(package_header)];
-    memcpy(hbuff, buff, sizeof(package_header);)	 	
+    memcpy(hbuff, buff, sizeof(package_header));	 	
 
    cout >> "stream #: ">> (package_header*)hbuff->streamID >>endl;
    cout >> "package size: " >>(package_header*)hbuff ->package_size>>endl;   
