@@ -11,15 +11,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 using namespace std;
 const int BUFF_SIZE = 1024;
 
 static char recv_buffer[BUFF_SIZE];
 struct package_header{
-	unsigned int streamID;
-	unsigned int package_size;
-
+	uint16_t   streamID;
+	uint32_t     package_size;
 };
 
 struct output_msg{
@@ -144,11 +144,25 @@ int main() {
     fstream myFile ("OUCHLMM2.incoming.packets", ios::in | ios::binary);
     //while(myFile){
    	 myFile.read (buff,  BUFF_SIZE);
-    char hbuff [sizeof(package_header)];
-    memcpy(hbuff, buff, sizeof(package_header));	 	
+    char hbuff[2];
+    memcpy(hbuff, buff,2);	 	
+    
+     //package_header* temp = (struct package_header*)hbuff;
+    //uint16_t  sid = ntohs(temp->streamID);
+    //uint32_t  psize = __builtin_bswap32((temp->package_size));
+    uint16_t* sid = (uint16_t*)hbuff;
+    uint16_t stream_id = ntohl(*sid);
+    
+     char mlen[2];
+    memcpy(mlen, buff+99, 2);
+    uint16_t* tmp =(uint16_t*)mlen;
+    uint16_t message_len = ntohs(*tmp);
+    
 
-   cout >> "stream #: ">> (package_header*)hbuff->streamID >>endl;
-   cout >> "package size: " >>(package_header*)hbuff ->package_size>>endl;   
+
+   cout << "stream #: " <<  stream_id << endl;
+   //cout << "package size #: " <<  psize << endl;
+   cout << "message size #: " <<  message_len << endl;
    return 0;    
 
 
