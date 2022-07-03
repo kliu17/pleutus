@@ -19,8 +19,8 @@ const int BUFF_SIZE = 1024;
 static char recv_buffer[BUFF_SIZE];
 struct package_header{
 	uint16_t   streamID;
-	uint32_t     package_size;
-};
+	uint32_t   package_size;
+}__attribute__((packed));;
 
 struct output_msg{
 unsigned int  streamID;
@@ -138,20 +138,16 @@ int ouch42_out_message_decode(struct buffer *buf, struct ouch42_message *msg) {
 }       
 
 int main() {
-   // struct buffer *buf;
-    //buf = buffer_new(BUFF_SIZE);
     char buff[BUFF_SIZE];
     fstream myFile ("OUCHLMM2.incoming.packets", ios::in | ios::binary);
-    //while(myFile){
-   	 myFile.read (buff,  BUFF_SIZE);
-    char hbuff[2];
-    memcpy(hbuff, buff,2);	 	
+
+    myFile.read (buff,  BUFF_SIZE);
+    char hbuff[6];
+    memcpy(hbuff, buff,6);	 	
     
-     //package_header* temp = (struct package_header*)hbuff;
-    //uint16_t  sid = ntohs(temp->streamID);
-    //uint32_t  psize = __builtin_bswap32((temp->package_size));
-    uint16_t* sid = (uint16_t*)hbuff;
-    uint16_t stream_id = ntohl(*sid);
+     package_header* temp = (struct package_header*)hbuff;
+    uint16_t  sid = ntohs(temp->streamID);
+    uint32_t  psize = ntohl((temp->package_size));
     
      char mlen[2];
     memcpy(mlen, buff+99, 2);
@@ -160,8 +156,8 @@ int main() {
     
 
 
-   cout << "stream #: " <<  stream_id << endl;
-   //cout << "package size #: " <<  psize << endl;
+   cout << "stream #: " <<  sid << endl;
+   cout << "package size #: " <<  psize << endl;
    cout << "message size #: " <<  message_len << endl;
    return 0;    
 
