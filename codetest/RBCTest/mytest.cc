@@ -1,4 +1,4 @@
-#include <iostream>
+ #include <iostream>
 #include <string.h>
 #include <fstream>
 #include <sys/socket.h>
@@ -108,32 +108,38 @@ int ouch_in_message_decode(struct buffer *buf, struct ouch_message *msg) {
 }       
 **/
 
-int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg) {
+int ouch_out_message_decode(struct buffer *buf, struct ouch_message *msg, char& mtype,  uint32_t package_size, uint16_t msg_size) {
         void *start;
         size_t size;
         uint8_t type;
         start = buffer_start(buf);
-        type = buffer_get_8(buf);
-        cout<<"after read type start: "<<buf->start<<endl;
-        cout<<"type=" <<type<<endl;
-        size = ouch_out_message_size(type);
-        cout<<"size="<<size<<endl;
+        //	type = buffer_get_8(buf);
+	char msg_type=buf->data[(buf->start)+1];
+	
+	cout<<"inside decode type="<<msg_type<<endl;
+	mtype = msg_type;	
+	if(package_size == msg_size + 2){
+        size = ouch_out_message_size(msg_type);
         if (!size)
                 return -1;
         memcpy(msg, start, size);
-        cout<<"start="<<buf->start<<endl;
         buffer_advance(buf, size);
-       cout<<"after start="<<buf->start<<endl;
+	}
+	else if(package_size < msg_size){
+		memcpy(msg, start, package_size-2);
+        	buffer_advance(buf, package_size-2);
+	}
+	else{
+		cout<<"Error: shouldn't be here"<<endl;
+	}
+
         return 0;
 }     
 int package_header_decode(struct buffer *buf,char *msg) {
         void *start;
         size_t size;
-        uint8_t type;
         start = buffer_start(buf);
         size = sizeof(struct package_header);
-        if (!size)
-                return -1;
         memcpy(msg, start, size);
         buffer_advance(buf, size);
         return 0;
@@ -153,27 +159,31 @@ unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char typ
         p.is_complete_package = true;
         m.insert({id, {p}});
     }
-    m[id].is_complete_package = cp;
-    if (!cp) {
+    if (!cp && !m[id].is_complete_package) {
         m[id].is_complete_package = true;
         return m;
     }
+    m[id].is_complete_package = cp;
     switch (type) {
         case OUCH_MSG_SYSTEM_EVENT:
                 m[id].num_system_events++;
+                break;
         case OUCH_MSG_ACCEPTED:
                 m[id].num_accepted++;
+                break;
         case OUCH_MSG_REPLACED:
                 m[id].num_replaced++;
+                break;
         case OUCH_MSG_CANCELED:
                 m[id].num_canceled++;
+                break;
         default:
                 break;
     }
     return m;
 }
 
-unordered_map<uint16_t,cnt_r> update_cnt_executed(unordered_map<uint16_t,cnt_r> m, int id, int shares, bool cp) {
+unordered_map<int,cnt_r> update_cnt_executed(unordered_map<int,cnt_r> m, int id, int shares, bool cp) {
     if (m.find(id) == m.end()) {
         // no stream id present, so create a new one
         cnt_r p;
@@ -187,17 +197,17 @@ unordered_map<uint16_t,cnt_r> update_cnt_executed(unordered_map<uint16_t,cnt_r> 
         p.is_complete_package = true;
         m.insert({id, {p}});
     }
-    m[id].is_complete_package = cp;
-    if (!cp) {
+    if (!cp && !m[id].is_complete_package) {
         m[id].is_complete_package = true;
         return m;
     }
+    m[id].is_complete_package = cp;
     m[id].executed[0]++;
     m[id].executed[1] += shares;
     return m;
 }
 
-void print_result(unordered_map<uint16_t,cnt_r> m) {
+void print_result(unordered_map<int,cnt_r> m) {
     cnt_r totals;
     totals.num_accepted = 0;
     totals.num_system_events = 0;
@@ -209,13 +219,15 @@ void print_result(unordered_map<uint16_t,cnt_r> m) {
     if (m.size()<=0)
         cout << "\nNo values exist in the count result table.";
 
+    cout << "++++" <<endl;
     for (auto it=m.begin(); it!=m.end(); it++) {
         cout << "\nStream " << it->first << "\n";
         cout << "Accepted: " << it->second.num_accepted << " messages" << "\n";
         cout << "System Event: " << it->second.num_system_events << " messages" << "\n";
         cout << "Replaced: " << it->second.num_replaced << " messages" << "\n";
         cout << "Canceled: " << it->second.num_canceled << " messages" << "\n";
-        cout << "Executed: " << it->second.executed[0] << " messages: " << it->second.executed[1] << "executed shares" << "\n";
+        cout << "Executed: " << it->second.executed[0] << " messages: " << it->second.executed[1] << " executed shares" << "\n";
+        cout << "NoInComplete: " << it->second.is_complete_package << "\n";
         totals.num_accepted += it->second.num_accepted;
         totals.num_system_events += it->second.num_system_events;
         totals.num_replaced += it->second.num_replaced;
@@ -224,6 +236,7 @@ void print_result(unordered_map<uint16_t,cnt_r> m) {
         totals.executed[1] += it->second.executed[1];
     }
 
+    cout << "++++" <<endl;
     cout << endl;
     cout << "\nTotals: " << "\n";
     cout << "Accepted: " << totals.num_accepted << " messages" << "\n"; 
@@ -241,42 +254,72 @@ int main() {
 
         struct buffer* buff =  buffer_new(BUFF_SIZE);
         buffer_read(buff, fd);
-//      while(buff->start <=(BUFF_SIZE -100)){
+        while(buff->start <=(BUFF_SIZE -100)){
                 //buffer to hold header
                 char header[6];
                 //buffer to hold message
-                ouch_message message[100];
+                ouch_message  message[100];
 
                 //read header
                 package_header_decode(buff,header);
                 struct package_header* h = (struct package_header*)header;
-
+		uint32_t package_size = ntohl(h->PackageSize);
+		uint16_t stream_id = ntohs(h->StreamId);
+		
+		
+		uint16_t msg_len;	
+		
+		char msg_type;
                 //read message length
-                uint16_t msg_len = buffer_get_le16(buff);
-                cout<<buff->start<<endl;
+                /* uint16_t msg_len = ntohs(buffer_get_le16(buff));
 
                 //read message
-                ouch_out_message_decode(buff, message);
+                ouch_out_message_decode(buff, message, package_size, msg_len); */
 
+		if(res.find(stream_id) != res.end()){ // stream not first time appear
+			if(!res[stream_id].is_complete_package ){ //second half - no message length field
+				cout<<"inside pkg size"<<package_size;
+				buffer_advance(buff, package_size);
+				cout<<"seconf half of incomplete message"<<endl;
+			} 
+			else{ //not second half, read messae length
+				//read message length
+                		 msg_len = ntohs(buffer_get_le16(buff));
 
-                cout << ntohs(h->StreamId)<<endl;
-                cout <<ntohl( h->PackageSize)<<endl;
-                cout <<ntohs(msg_len)<<endl;
-                cout<<message->MessageType<<endl;
-                cout <<buff->start<<endl;
-//      }
+                		//read message
+                		ouch_out_message_decode(buff, message,msg_type, package_size, msg_len);
+			} 						
 
+		}
+		else{ //the stream is first time- need to read message length field
+		
+				//read message length
+                		 msg_len = ntohs(buffer_get_le16(buff));
 
-        /* char hbuff[6];
-           memcpy(hbuff, buff,6);
+                		//read message
+                		ouch_out_message_decode(buff, message,msg_type,  package_size, msg_len);
+			
+		}
+		
+		//true is complete package, update result
+                bool flag = true;
+                if(package_size != msg_len + 2){
+                        flag = false;	
+			cout<<"incomplete message"<<endl;
+		}
+		if(message->MessageType == OUCH_MSG_EXECUTED){
+			res = update_cnt_executed(res, (int)stream_id, 10, flag);
+		}
+		else{
 
-           package_header* temp = (struct package_header*)hbuff;
-           uint16_t  sid = ntohs(temp->StreamId);
-           uint32_t  psize = ntohl((temp->PackageSize));
+			res = update_cnt(res, (int)stream_id ,  msg_type, flag);
+		}
+                cout <<"stream id:"<< stream_id<<endl;
+                cout <<"package size: " << package_size<<endl;
+                cout <<"message len"<<msg_len<<endl;
+		cout <<"out msg type:" << msg_type<<endl;
+		cout <<"*********"<<endl;
+           }
 
-           char mlen[2];
-           memcpy(mlen, buff+99, 2);
-           uint16_t* tmp =(uint16_t*)mlen;
-           uint16_t message_len = ntohs(*tmp);
-         */
+           print_result(res);
 }

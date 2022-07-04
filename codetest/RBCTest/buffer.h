@@ -51,7 +51,10 @@ static inline le16 buffer_peek_le16(const struct buffer *self)
 
 static inline u8 buffer_get_8(struct buffer *self)
 {
-	return self->data[self->start++];
+	unsigned long index = self->start++;
+	return self->data[index];
+	 
+//	return self->data[(self->start)	+1  ];
 }
 
 static inline char buffer_get_char(struct buffer *self)
