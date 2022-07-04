@@ -14,10 +14,6 @@ extern "C" {
 #include <unistd.h>	/* for ssize_t */
 using namespace std;
 
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -30,10 +26,6 @@ struct buffer {
 	char			*data;
 };
 
-struct buffer *buffer_new(unsigned long capacity);
-void buffer_delete(struct buffer *self);
-ssize_t buffer_read(struct buffer *self, fstream& fd);
-
 static inline u8 buffer_peek_8(const struct buffer *self) {
 	return self->data[self->start];
 }
@@ -41,7 +33,6 @@ static inline u8 buffer_peek_8(const struct buffer *self) {
 static inline u8 buffer_get_8(struct buffer *self) {
 	unsigned long index = self->start++;
 	return self->data[index];
-//	return self->data[(self->start)	+1  ];
 }
 
 static inline char buffer_get_char(struct buffer *self) {

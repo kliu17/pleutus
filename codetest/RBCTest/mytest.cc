@@ -12,6 +12,11 @@
 #include "ouch_message.h"
 #include "buffer.h"
 
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
 using namespace std;
 const int BUFF_SIZE = 1024;
 
@@ -25,41 +30,41 @@ struct cnt_r{
     unsigned int num_replaced;
     unsigned int num_canceled;
     int executed[2];
-    bool is_complete_package;
+    bool is_complete_package;       // in complete package or not
 };
 
 struct buffer *buffer_new(unsigned long capacity) {
-        struct buffer *buf;
-        buf = (struct buffer *)malloc(sizeof *buf + capacity);
-        if (!buf)
-                return NULL;
-        buf->data       = (char *) buf + sizeof(*buf);
-        buf->capacity   = capacity;
-        buf->start      = 0;
-        buf->end        = 0;
-        return buf;
+    struct buffer *buf;
+    buf = (struct buffer *)malloc(sizeof *buf + capacity);
+    if (!buf)
+        return NULL;
+    buf->data       = (char *) buf + sizeof(*buf);
+    buf->capacity   = capacity;
+    buf->start      = 0;
+    buf->end        = 0;
+    return buf;
 }
 
 void buffer_delete(struct buffer *buf) {
-        free(buf);
+    free(buf);
 }
 
 ssize_t buffer_read(struct buffer *buf, fstream& fd) {
-        size_t count;
-        ssize_t len;
-        char *end;
-        end     = buffer_end(buf);
-        count   = buffer_remaining(buf);
+    size_t count;
+    ssize_t len;
+    char *end;
+    end     = buffer_end(buf);
+    count   = buffer_remaining(buf);
 
-        //len = read(fd, end, count);
-        fd.read( end, count);
+    //len = read(fd, end, count);
+    fd.read( end, count);
 
-        buf->end += count;
-        return count;
+    buf->end += count;
+    return count;
 }
 
-static unsigned long ouch_out_message_size(uint8_t type) {
-        switch (type) { 
+static unsigned long ouch_out_message_size(u8 type) {
+     switch (type) { 
         case OUCH_MSG_SYSTEM_EVENT:
                 return sizeof (struct ouch_msg_system_event);
         case OUCH_MSG_ACCEPTED:
@@ -72,47 +77,47 @@ static unsigned long ouch_out_message_size(uint8_t type) {
                 return sizeof (struct ouch_msg_executed);
         default:
                 break;
-        };
-        return 0;
+    };
+    return 0;
 }
 
-int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  uint32_t package_size, uint16_t msg_size, uint32_t& shares) {
-        void *start;
-        size_t size;
-        uint8_t type;
-        start = buffer_start(buf);
-        //	type = buffer_get_8(buf);
-	char msg_type=buf->data[(buf->start)+1];
+int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  u32 package_size, u16 msg_size, u32& shares) {
+    void *start;
+    size_t size;
+    u8 type;
+    start = buffer_start(buf);
+    //	type = buffer_get_8(buf);
+    char msg_type=buf->data[(buf->start)+1];
 	
-	cout<<"inside decode type="<<msg_type<<endl;
-	mtype = msg_type;	
-	if(package_size >= msg_size + 2){
-            size = ouch_out_message_size(msg_type);
-            if (!size)
+    cout<<"inside decode type="<<msg_type<<endl;
+    mtype = msg_type;	
+    if(package_size >= msg_size + 2){
+        size = ouch_out_message_size(msg_type);
+        if (!size)
                 return -1;
-            memcpy(msg, start, size);
-            buffer_advance(buf, size);
-	} else {
-            memcpy(msg, start, package_size-2);
-            buffer_advance(buf, package_size-2);
-	}
+        memcpy(msg, start, size);
+        buffer_advance(buf, size);
+    } else {
+        memcpy(msg, start, package_size-2);
+        buffer_advance(buf, package_size-2);
+    }
 
-        if(msg_type == OUCH_MSG_EXECUTED){
-            struct ouch_msg_executed* ee = (struct ouch_msg_executed*)msg;
-            shares = ntohl(ee->ExecutedShares);
-        }
+    if(msg_type == OUCH_MSG_EXECUTED){
+        struct ouch_msg_executed* ee = (struct ouch_msg_executed*)msg;
+        shares = ntohl(ee->ExecutedShares);
+    }
 
-        return 0;
+    return 0;
 }     
 
 int package_header_decode(struct buffer *buf,char *msg) {
-        void *start;
-        size_t size;
-        start = buffer_start(buf);
-        size = sizeof(struct package_header);
-        memcpy(msg, start, size);
-        buffer_advance(buf, size);
-        return 0;
+    void *start;
+    size_t size;
+    start = buffer_start(buf);
+    size = sizeof(struct package_header);
+    memcpy(msg, start, size);
+    buffer_advance(buf, size);
+    return 0;
 }
 
 unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char type, bool cp) {
@@ -228,7 +233,7 @@ int main() {
 
     cout << bufferlength << endl;
     //struct buffer* buff =  buffer_new(BUFF_SIZE);
-    bufferlength = 8800;
+    bufferlength = 9000;
     struct buffer* buff =  buffer_new(bufferlength);
 
     buffer_read(buff, fd);
@@ -243,12 +248,12 @@ int main() {
         //read header
         package_header_decode(buff,header);
         struct package_header* h = (struct package_header*)header;
-	uint32_t package_size = ntohl(h->PackageSize);
-	uint16_t stream_id = ntohs(h->StreamId);
+	u32 package_size = ntohl(h->PackageSize);
+	u16 stream_id = ntohs(h->StreamId);
 		
-	uint16_t msg_len;	
+	u16 msg_len;	
 	char msg_type;
-        uint32_t shares;
+        u32 shares;
 
 	if(res.find(stream_id) != res.end()){ // stream not first time appear
 	    if(!res[stream_id].is_complete_package ){ //second half - no message length field
