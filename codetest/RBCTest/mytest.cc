@@ -44,21 +44,6 @@ void buffer_delete(struct buffer *buf) {
         free(buf);
 }
 
-ssize_t buffer_nread(struct buffer *buf, int fd, size_t size) {
-        size_t count;
-        ssize_t len;
-        void *end;
-        end     = buffer_end(buf);
-        count   = buffer_remaining(buf);
-        if (count > size)
-                count = size;
-        len = read(fd, end, count);
-        if (len < 0)
-                return len;
-        buf->end += len;
-        return len;
-}
-
 ssize_t buffer_read(struct buffer *buf, fstream& fd) {
         size_t count;
         ssize_t len;
@@ -238,6 +223,7 @@ int main() {
 
     cout << bufferlength << endl;
     //struct buffer* buff =  buffer_new(BUFF_SIZE);
+    bufferlength = 8800;
     struct buffer* buff =  buffer_new(bufferlength);
 
     buffer_read(buff, fd);
@@ -294,7 +280,6 @@ int main() {
 	    res = update_cnt(res, (int)stream_id ,  msg_type, flag);
 	}
 
-       
         cout <<"stream id:"<< stream_id<<endl;
         cout <<"package size: " << package_size<<endl;
         cout <<"message len"<<msg_len<<endl;
