@@ -18,7 +18,8 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 using namespace std;
-const int BUFF_SIZE = 1024;
+
+const int BUFF_SIZE = 8800;  // optimized per my laptop
 
 /*
  * count result for each stream:
@@ -62,6 +63,16 @@ ssize_t buffer_read(struct buffer *buf, fstream& fd) {
     buf->end += count;
     return count;
 }
+void buffer_append(struct buffer *dst, struct buffer *src) {
+        size_t len = buffer_size(src);
+        if (len > buffer_remaining(dst)) {
+                len = buffer_remaining(dst);
+        }
+        memcpy(dst->data + dst->start, src->data + src->start, len);
+        dst->start += len;
+        dst->end += len;
+}
+
 
 static unsigned long ouch_out_message_size(u8 type) {
      switch (type) { 
@@ -226,30 +237,55 @@ int main() {
 
     fstream fd;
     fd.open("OUCHLMM2.incoming.packets", ios::in | ios::binary);
-
     fd.seekg (0, ios::end);
-    unsigned long bufferlength = fd.tellg();
+    unsigned long file_size = fd.tellg();
     fd.seekg (0, ios::beg);
+    cout << file_size << endl; 
+    unsigned long total_read = 0;
 
-    cout << bufferlength << endl;
-    //struct buffer* buff =  buffer_new(BUFF_SIZE);
-    bufferlength = 9000;
-    struct buffer* buff =  buffer_new(bufferlength);
+    struct buffer* buff =  buffer_new(BUFF_SIZE);
 
     buffer_read(buff, fd);
     cout << buff->capacity << endl;
-    while (buff->start < bufferlength){
+
+    while (true){
         //buffer to hold header
         char header[sizeof (struct package_header)];
 
         //buffer to hold message
         char message[100];
 
+	if(buff->start + sizeof(package_header) >= BUFF_SIZE){ //check BUFF_SIZE cutoff situation, leftover size less than header size, then break
+	    //create new buffer and copy old buffer leftover to new buffer.
+	       struct buffer* tmp = buffer_new(BUFF_SIZE);
+	       buffer_append(tmp, buff);
+	       buffer_delete(buff);
+	       buff = tmp;	       
+	       buffer_read(buff, fd); 
+		cout<<"here ---------"<<endl;
+	       buff->start = 0; //reset buff->start
+	       continue;
+	}
         //read header
         package_header_decode(buff,header);
         struct package_header* h = (struct package_header*)header;
 	u32 package_size = ntohl(h->PackageSize);
+        cout << "header package_size " << package_size << endl; 
 	u16 stream_id = ntohs(h->StreamId);
+        cout << "header stream_id " << stream_id << endl; 
+	
+	if(buff->start + package_size > BUFF_SIZE){ //check BUFF_SIZE cutoff situation. leftover size less than package size, then break.
+		
+               struct buffer* tmp = buffer_new(BUFF_SIZE);
+		buff->start -= sizeof(package_header); //rewind package header
+               buffer_append(tmp, buff);
+               buffer_delete(buff);
+               buff = tmp;           
+               buffer_read(buff, fd);
+               buff->start = 0; //reset buff->start
+	       cout<<"buff->start"<<endl;
+	       continue;
+	}
 		
 	u16 msg_len;	
 	char msg_type;
@@ -260,7 +296,10 @@ int main() {
 	        cout<<"inside pkg size"<<package_size;
 		buffer_advance(buff, package_size);
 		cout<<"seconf half of incomplete message"<<endl;
-            } else { //not second half, read messae length
+            }else if(package_size <=4){
+		buffer_advance(buff, package_size);
+	   } 
+	   else { //not second half, read messae length
 		//read message length
                 msg_len = ntohs(buffer_get_le16(buff));
 
@@ -268,7 +307,10 @@ int main() {
                	ouch_out_message_decode(buff, message,msg_type, package_size, msg_len, shares);
             } 						
 
-	} else { //the stream is first time- need to read message length field 
+	}else if(package_size <=4){
+	   buffer_advance(buff, package_size);
+	} 
+	 else{ //the stream is first time- need to read message length field 
             //read message length
             msg_len = ntohs(buffer_get_le16(buff));
 
@@ -289,15 +331,17 @@ int main() {
 	} else {
 	    res = update_cnt(res, (int)stream_id, msg_type, flag);
 	}
+	total_read += sizeof(package_header) + package_size;
+	if(total_read == file_size)
+	    break; //end of file
 
         cout <<"stream id:"<< stream_id<<endl;
         cout <<"package size: " << package_size<<endl;
         cout <<"message len"<<msg_len<<endl;
-	cout <<"out msg type:" << msg_type<<endl;
+	cout <<"msg type:" << msg_type<<endl;
         cout <<"buffer position: " << buff->start << endl;
 	cout <<"*********"<<endl;
     }
-    buffer_delete(buff);
 
     print_result(res);
 }
