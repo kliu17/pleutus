@@ -76,7 +76,7 @@ static unsigned long ouch_out_message_size(uint8_t type) {
         return 0;
 }
 
-int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  uint32_t package_size, uint16_t msg_size) {
+int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  uint32_t package_size, uint16_t msg_size, uint32_t& shares) {
         void *start;
         size_t size;
         uint8_t type;
@@ -96,6 +96,11 @@ int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  uint32_
             memcpy(msg, start, package_size-2);
             buffer_advance(buf, package_size-2);
 	}
+
+        if(msg_type == OUCH_MSG_EXECUTED){
+            struct ouch_msg_executed* ee = (struct ouch_msg_executed*)msg;
+            shares = ntohl(ee->ExecutedShares);
+        }
 
         return 0;
 }     
@@ -242,8 +247,8 @@ int main() {
 	uint16_t stream_id = ntohs(h->StreamId);
 		
 	uint16_t msg_len;	
-		
 	char msg_type;
+        uint32_t shares;
 
 	if(res.find(stream_id) != res.end()){ // stream not first time appear
 	    if(!res[stream_id].is_complete_package ){ //second half - no message length field
@@ -255,7 +260,7 @@ int main() {
                 msg_len = ntohs(buffer_get_le16(buff));
 
                 //read message
-               	ouch_out_message_decode(buff, message,msg_type, package_size, msg_len);
+               	ouch_out_message_decode(buff, message,msg_type, package_size, msg_len, shares);
             } 						
 
 	} else { //the stream is first time- need to read message length field 
@@ -263,8 +268,7 @@ int main() {
             msg_len = ntohs(buffer_get_le16(buff));
 
             //read message
-            ouch_out_message_decode(buff, message,msg_type,  package_size, msg_len);
-			
+            ouch_out_message_decode(buff, message,msg_type,  package_size, msg_len, shares);
 	}
 		
 	//true is complete package, update result
@@ -275,9 +279,10 @@ int main() {
 	}
 
 	if(msg_type == OUCH_MSG_EXECUTED){
-            res = update_cnt_executed(res, (int)stream_id, 10, flag);
+            cout << shares << " executed shares" << endl;
+            res = update_cnt_executed(res, (int)stream_id, int(shares), flag);
 	} else {
-	    res = update_cnt(res, (int)stream_id ,  msg_type, flag);
+	    res = update_cnt(res, (int)stream_id, msg_type, flag);
 	}
 
         cout <<"stream id:"<< stream_id<<endl;
