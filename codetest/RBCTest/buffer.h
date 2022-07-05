@@ -21,6 +21,11 @@ struct buffer {
 	char			*data;
 };
 
+static inline void buffer_reset(struct buffer *buf)
+{
+        buf->start = buf->end = 0;
+}
+
 static inline uint8_t buffer_get_8(struct buffer *self) {
         return self->data[self->start++];
 }
