@@ -20,19 +20,8 @@ typedef uint64_t u64;
 using namespace std;
 
 const int BUFF_SIZE = 8800;  // optimized per my laptop
+const int MIN_MESSAGE_SIZE = 11;
 
-/*
- * count result for each stream:
- */
-struct cnt_r{
-    int stream_id;
-    unsigned int num_accepted;
-    unsigned int num_system_events;
-    unsigned int num_replaced;
-    unsigned int num_canceled;
-    int executed[2];
-    bool is_complete_package;       // in complete package or not
-};
 
 struct buffer *buffer_new(unsigned long capacity) {
     struct buffer *buf;
@@ -45,6 +34,19 @@ struct buffer *buffer_new(unsigned long capacity) {
     buf->end        = 0;
     return buf;
 }
+/*
+ * count result for each stream:
+ */
+struct cnt_r{
+    int stream_id;
+    unsigned int num_accepted;
+    unsigned int num_system_events;
+    unsigned int num_replaced;
+    unsigned int num_canceled;
+    unsigned int executed[2];
+    bool is_complete_package;       // in complete package or not
+    struct buffer*  incomplete_buff = buffer_new(100);  // hold imcomplete message.
+};
 
 void buffer_delete(struct buffer *buf) {
     free(buf);
@@ -72,6 +74,15 @@ void buffer_append(struct buffer *dst, struct buffer *src) {
     dst->end += len;
 }
 
+void package_append(struct buffer *dst,char* src, int len) {
+    if (len > buffer_remaining(dst)) {
+        len = buffer_remaining(dst);
+    }
+    memcpy(dst->data + dst->start, src, len);
+    dst->start += len;
+    dst->end += len;
+}
+
 static unsigned long ouch_out_message_size(u8 type) {
     switch (type) { 
         case OUCH_MSG_SYSTEM_EVENT:
@@ -90,7 +101,7 @@ static unsigned long ouch_out_message_size(u8 type) {
     return 0;
 }
 
-int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  u32 package_size, u16 msg_size, u32& shares) {
+int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  u32& shares) {
     void *start;
     size_t size;
     u8 type;
@@ -98,16 +109,11 @@ int ouch_out_message_decode(struct buffer *buf, char *msg, char& mtype,  u32 pac
     char msg_type=buf->data[(buf->start)+1];
     cout<<"inside decode type="<<msg_type<<endl;
     mtype = msg_type;	
-    if(package_size >= msg_size + 2){
         size = ouch_out_message_size(msg_type);
         if (!size)
                 return -1;
         memcpy(msg, start, size);
         buffer_advance(buf, size);
-    } else {
-        memcpy(msg, start, package_size-2);
-        buffer_advance(buf, package_size-2);
-    }
     if(msg_type == OUCH_MSG_EXECUTED){
         struct ouch_msg_executed* ee = (struct ouch_msg_executed*)msg;
         shares = ntohl(ee->ExecutedShares);
@@ -125,7 +131,7 @@ int package_header_decode(struct buffer *buf,char *msg) {
     return 0;
 }
 
-unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char type, bool cp) {
+unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char type) {
     if (m.find(id) == m.end()) {
         // no stream id present, so create a new one
         cnt_r p;
@@ -139,11 +145,6 @@ unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char typ
         p.is_complete_package = true;
         m.insert({id, {p}});
     }
-    if (!cp && !m[id].is_complete_package) {
-        m[id].is_complete_package = true;
-        return m;
-    }
-    m[id].is_complete_package = cp;
     switch (type) {
         case OUCH_MSG_SYSTEM_EVENT:
                 m[id].num_system_events++;
@@ -163,7 +164,7 @@ unordered_map<int,cnt_r> update_cnt(unordered_map<int,cnt_r> m, int id, char typ
     return m;
 }
 
-unordered_map<int,cnt_r> update_cnt_executed(unordered_map<int,cnt_r> m, int id, int shares, bool cp) {
+unordered_map<int,cnt_r> update_cnt_executed(unordered_map<int,cnt_r> m, int id, int shares) {
     if (m.find(id) == m.end()) {
         // no stream id present, so create a new one
         cnt_r p;
@@ -177,11 +178,7 @@ unordered_map<int,cnt_r> update_cnt_executed(unordered_map<int,cnt_r> m, int id,
         p.is_complete_package = true;
         m.insert({id, {p}});
     }
-    if (!cp && !m[id].is_complete_package) {
-        m[id].is_complete_package = true;
-        return m;
-    }
-    m[id].is_complete_package = cp;
+
     m[id].executed[0]++;
     m[id].executed[1] += shares;
     return m;
@@ -229,6 +226,7 @@ void print_result(unordered_map<int,cnt_r> m) {
 int main() {
     unordered_map<int,cnt_r> res;
 
+    
     fstream fd;
     fd.open("OUCHLMM2.incoming.packets", ios::in | ios::binary);
     fd.seekg (0, ios::end);
@@ -236,12 +234,15 @@ int main() {
     fd.seekg (0, ios::beg);
     cout << file_size << endl; 
     unsigned long total_read = 0;
+  
+    int pages = file_size / BUFF_SIZE+3 ;
 
+    int count_pages = 0;
     struct buffer* buff =  buffer_new(BUFF_SIZE);
 
     buffer_read(buff, fd);
     cout << buff->capacity << endl;
-
+int small = 0;
     while (true){
         char header[sizeof (struct package_header)];
         char message[100];
@@ -253,8 +254,15 @@ int main() {
 	       buffer_delete(buff);
 	       buff = tmp;	       
 	       buffer_read(buff, fd); 
-	       //cout<<"here ---------"<<endl;
 	       buff->start = 0; //reset buff->start
+		cout<<"change buffer"<<endl;
+		if(fd.eof()) {
+		  cout<<"end of file"<<endl;
+		  break;
+		}
+		count_pages++;
+		if(count_pages >= pages)
+		   break;
 	       continue;
 	}
         package_header_decode(buff,header);
@@ -272,57 +280,119 @@ int main() {
                buffer_delete(buff);
                buff = tmp;           
                buffer_read(buff, fd);
+	       if(fd.eof()){
+		cout<<"end of file"<<endl;
+		break;
+		}
                buff->start = 0; //reset buff->start
-	       cout<<"buff->start"<<endl;
+	       cout<<"change buffer"<<endl;
+		count_pages++;
+		if(count_pages >= pages)
+			break;
 	       continue;
 	}
 		
-	u16 msg_len;	
+	u16 msg_len = 0;	
 	char msg_type;
-        u32 shares;
+        u32 shares = 0;
 	if(res.find(stream_id) != res.end()){ // stream not first time appear
 	    if(!res[stream_id].is_complete_package ){ //second half - no message length field
-	        cout<<"inside pkg size"<<package_size;
+	        package_append(res[stream_id].incomplete_buff, buff->data+buff->start, package_size);	
 		buffer_advance(buff, package_size);
+	
+		res[stream_id].incomplete_buff->start =0;
+		msg_len = ntohs(buffer_get_le16(res[stream_id].incomplete_buff)); //read meg_len		
+		//res[stream_id].incomplete_buff->start =0;
+		ouch_out_message_decode(res[stream_id].incomplete_buff, message,msg_type, shares);
 		cout<<"seconf half of incomplete message"<<endl;
-            } else if(package_size <=4){
-		buffer_advance(buff, package_size);
-	    } else { //not second half, read messae length
-		//read message length
-                msg_len = ntohs(buffer_get_le16(buff));
-                //read message
-               	ouch_out_message_decode(buff, message,msg_type, package_size, msg_len, shares);
-            } 						
-	} else if(package_size <=4){
-	    buffer_advance(buff, package_size);
-	} else { //the stream is first time- need to read message length field 
-            //read message length
-            msg_len = ntohs(buffer_get_le16(buff));
-            //read message
-            ouch_out_message_decode(buff, message,msg_type,  package_size, msg_len, shares);
-	}
 		
-	//true is complete package, update result
-        bool flag = true;
-        if(package_size != msg_len + 2){
-            flag = false;	
-            cout<<"incomplete message"<<endl;
-	}
+		//reset incomplete_Buff
+		buffer_reset(res[stream_id].incomplete_buff);
 
-	if(msg_type == OUCH_MSG_EXECUTED){
-            cout << shares << " executed shares" << endl;
-            res = update_cnt_executed(res, (int)stream_id, int(shares), flag);
-	} else {
-	    res = update_cnt(res, (int)stream_id, msg_type, flag);
-	}
+
+                  if(msg_type == OUCH_MSG_EXECUTED){
+                      cout << shares << " executed shares" << endl;
+                      res = update_cnt_executed(res, (int)stream_id, int(shares));
+                  } else {
+                      res = update_cnt(res, (int)stream_id, msg_type);
+                   }
+
+		//update flag
+                res[stream_id].is_complete_package = true;
+		
+            } else if(package_size <=2){  //first imcomplete message, cannot read message length
+		small ++;
+		package_append(res[stream_id].incomplete_buff, buff->data+buff->start, package_size);
+		buffer_advance(buff, package_size);
+	    } else { //not second half, and package length > 2, SO read msg_len
+		msg_len = ntohs(buffer_get_le16(buff)); //read msg len
+		
+		if(msg_len < MIN_MESSAGE_SIZE){
+			buffer_advance(buff, package_size-2);
+			continue;
+		}
+
+		if(package_size != msg_len +2){ //first incomplete package
+		  package_append(res[stream_id].incomplete_buff, buff->data+buff->start-2, package_size); //append first incomplete package  
+		   buffer_advance(buff, package_size-2); //advance buffer
+		
+		   //update flag
+		   res[stream_id].is_complete_package = false;
+		}else{ //complete message
+		
+                  //msg_len = ntohs(buffer_get_le16(buff)); //read msg len
+               	  ouch_out_message_decode(buff, message,msg_type,  shares); //read message
+			//update result when complete
+
+                  if(msg_type == OUCH_MSG_EXECUTED){
+                      cout << shares << " executed shares" << endl;
+                      res = update_cnt_executed(res, (int)stream_id, int(shares));
+                  } else {
+                      res = update_cnt(res, (int)stream_id, msg_type);
+                   }
+		res[stream_id].is_complete_package = true;
+
+		}
+            } //end of not second half. 						
+	} else if(package_size <=2){
+	    package_append(res[stream_id].incomplete_buff, buff->data+buff->start, package_size);
+	    buffer_advance(buff, package_size);
+	} else { //the stream is first time- and package_size >2 need to read message length field 
+	    msg_len = ntohs(buffer_get_le16(buff)); //read meg_len
+	    if(package_size != msg_len +2){ //incomplete package
+                   package_append(res[stream_id].incomplete_buff, buff->data+buff->start, package_size-2); //append first incomplete package
+                   buffer_advance(buff, package_size-2); //advance buffer
+		   
+		   res[stream_id].is_complete_package = false;
+                }else{ //complete message
+                   //msg_len = ntohs(buffer_get_le16(buff)); //read meg_len
+                   ouch_out_message_decode(buff, message,msg_type,   shares); //read message
+
+
+                  if(msg_type == OUCH_MSG_EXECUTED){
+                      cout << shares << " executed shares" << endl;
+                      res = update_cnt_executed(res, (int)stream_id, int(shares));
+                  } else {
+                      res = update_cnt(res, (int)stream_id, msg_type);
+                  }
+		   res[stream_id].is_complete_package = true;
+	        } //end of complete message
+	} //end of first time stream
+		
+
 	total_read += sizeof(package_header) + package_size;
-	if(total_read == file_size)
+	if(total_read >= file_size )
 	    break; //end of file
 
+//print_result(res);
         cout <<"message len: "<<msg_len<<endl;
-	cout <<"msg type: " << msg_type<<endl;
+	//cout <<"msg type: " << msg_type<<endl;
         cout <<"buffer position: " << buff->start << endl;
 	cout <<"*********"<<endl;
-    }
+    } //end of while
+    buffer_delete(buff);
+   cout<<"total read"<<total_read<<endl;
+   cout<<"pages"<<pages<<endl;
     print_result(res);
+	cout<<"small = "<<small<<endl;
 }
